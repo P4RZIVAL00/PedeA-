@@ -1,0 +1,195 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: uid
+    // Fields:
+    //   - uid: string (required)
+    //   - name: string (required, 2-100 chars)
+    //   - phone: string (required, valid format)
+    //   - role: string (required, enum: customer, store, delivery)
+    //
+    // Collection: stores
+    // Document ID: storeId
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required, 2-100 chars)
+    //   - category: string (required, enum: restaurant, market, pharmacy, other)
+    //   - address: string (required)
+    //   - phone: string (required)
+    //   - ownerId: string (required)
+    //
+    // Collection: stores/{storeId}/products
+    // Document ID: productId
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required)
+    //   - price: number (required, positive)
+    //   - storeId: string (required)
+    //
+    // Collection: orders
+    // Document ID: orderId
+    // Fields:
+    //   - id: string (required)
+    //   - customerId: string (required)
+    //   - storeId: string (required)
+    //   - items: list (required)
+    //   - total: number (required, positive)
+    //   - deliveryAddress: string (required)
+    //   - paymentMethod: string (required, enum: pix, cash)
+    //   - status: string (required, enum: new, accepted, preparing, ready, out_for_delivery, delivered)
+    //   - createdAt: timestamp (required)
+    //   - driverId: string (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && getUserData().role == role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "elissonnascimento171@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'name', 'phone', 'role']) &&
+             data.uid == request.auth.uid &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+             data.phone is string && data.phone.size() <= 20 &&
+             data.role in ['customer', 'store', 'delivery'] &&
+             (!('cpf' in data) || (data.cpf is string && data.cpf.size() <= 14)) &&
+             (!('vehicleType' in data) || (data.vehicleType in ['bike', 'motorcycle', 'car'])) &&
+             (!('licensePlate' in data) || (data.licensePlate is string && data.licensePlate.size() <= 10)) &&
+             (!('isProfileComplete' in data) || (data.isProfileComplete is bool)) &&
+             (!('balance' in data) || (data.balance is number));
+    }
+
+    function isValidStore(data) {
+      return data.keys().hasAll(['name', 'category', 'address', 'phone', 'ownerId']) &&
+             data.ownerId == request.auth.uid &&
+             data.name is string && data.name.size() <= 100 &&
+             data.category in ['restaurant', 'market', 'pharmacy', 'other'] &&
+             data.address is string && data.address.size() <= 200 &&
+             data.phone is string && data.phone.size() <= 20;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['customerId', 'storeId', 'items', 'total', 'deliveryAddress', 'paymentMethod', 'status', 'createdAt']) &&
+             data.customerId == request.auth.uid &&
+             data.total is number && data.total > 0 &&
+             data.status in ['created', 'awaiting_payment'] &&
+             data.deliveryAddress is string && data.deliveryAddress.size() <= 200 &&
+             data.paymentMethod in ['pix', 'cash', 'mercadopago'] &&
+             (!('storeName' in data) || data.storeName is string) &&
+             (!('storeAddress' in data) || data.storeAddress is string) &&
+             (!('deliveryPin' in data) || (data.deliveryPin is string && data.deliveryPin.size() == 4));
+    }
+
+    function canTransitionTo(currentStatus, nextStatus) {
+      let transitions = {
+        'created': ['awaiting_payment', 'accepted_by_store', 'cancelled'],
+        'awaiting_payment': ['paid', 'cancelled'],
+        'paid': ['accepted_by_store', 'cancelled'],
+        'accepted_by_store': ['preparing', 'cancelled'],
+        'preparing': ['ready_for_delivery', 'cancelled'],
+        'ready_for_delivery': ['accepted_by_driver', 'cancelled'],
+        'accepted_by_driver': ['out_for_delivery', 'cancelled'],
+        'out_for_delivery': ['delivered', 'cancelled'],
+        'delivered': ['completed'],
+        'completed': [],
+        'cancelled': []
+      };
+      return nextStatus in transitions[currentStatus];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role != 'admin' || isAdmin());
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) || isAdmin();
+    }
+
+    match /withdrawals/{withdrawalId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId && request.resource.data.status == 'pending';
+      allow update: if isAdmin();
+    }
+
+    match /stores/{storeId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.ownerId && isValidStore(request.resource.data);
+      allow update: if (resource.data.ownerId == request.auth.uid && isValidStore(request.resource.data)) || isAdmin();
+      
+      match /products/{productId} {
+        allow read: if isAuthenticated();
+        allow write: if (get(/databases/$(database)/documents/stores/$(storeId)).data.ownerId == request.auth.uid) || isAdmin();
+      }
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.customerId || 
+        request.auth.uid == resource.data.get('driverId', null) ||
+        resource.data.storeId == request.auth.uid ||
+        (getUserData().role == 'delivery' && resource.data.status == 'ready_for_delivery') ||
+        isAdmin()
+      );
+      
+      allow create: if (hasRole('customer') || isAdmin()) && isValidOrder(request.resource.data);
+      
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        (
+          canTransitionTo(resource.data.status, request.resource.data.status) &&
+          (
+            // Store permissions
+            (resource.data.storeId == request.auth.uid && 
+             request.resource.data.status in ['accepted_by_store', 'preparing', 'ready_for_delivery', 'cancelled'] &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
+            
+            // Driver permissions
+            (getUserData().role == 'delivery' && 
+             (resource.data.get('driverId', null) == null || resource.data.driverId == request.auth.uid) &&
+             (
+               (request.resource.data.status == 'accepted_by_driver' && request.resource.data.driverId == request.auth.uid) ||
+               (request.resource.data.status == 'out_for_delivery' && resource.data.driverId == request.auth.uid) ||
+               (request.resource.data.status == 'delivered' && resource.data.driverId == request.auth.uid)
+             ) &&
+             request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'driverId', 'driverName', 'driverVehicle'])) ||
+            
+            // Customer permissions
+            (resource.data.customerId == request.auth.uid &&
+             request.resource.data.status in ['completed', 'cancelled'] &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
+          )
+        )
+      );
+    }
+  }
+}

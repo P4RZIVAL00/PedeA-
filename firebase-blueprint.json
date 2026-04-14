@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "App user profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "role": { "type": "string", "enum": ["customer", "store", "delivery"] }
+      },
+      "required": ["uid", "name", "phone", "role"]
+    },
+    "Store": {
+      "title": "Store",
+      "description": "Merchant profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["restaurant", "market", "pharmacy", "other"] },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "image": { "type": "string" }
+      },
+      "required": ["id", "name", "category", "address", "phone", "ownerId"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Store product",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "image": { "type": "string" },
+        "storeId": { "type": "string" }
+      },
+      "required": ["id", "name", "price", "storeId"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Delivery order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "storeId": { "type": "string" },
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "deliveryAddress": { "type": "string" },
+        "paymentMethod": { "type": "string", "enum": ["pix", "cash"] },
+        "status": { "type": "string", "enum": ["new", "accepted", "preparing", "ready", "out_for_delivery", "delivered"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "driverId": { "type": "string" }
+      },
+      "required": ["id", "customerId", "storeId", "items", "total", "deliveryAddress", "paymentMethod", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/stores/{storeId}": {
+      "schema": "Store",
+      "description": "Store profiles"
+    },
+    "/stores/{storeId}/products/{productId}": {
+      "schema": "Product",
+      "description": "Products within a store"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Orders"
+    }
+  }
+}
