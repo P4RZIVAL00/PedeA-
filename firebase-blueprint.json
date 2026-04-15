@@ -8,7 +8,8 @@
         "uid": { "type": "string" },
         "name": { "type": "string" },
         "phone": { "type": "string" },
-        "role": { "type": "string", "enum": ["customer", "store", "delivery"] }
+        "role": { "type": "string", "enum": ["customer", "store", "delivery"] },
+        "fcmTokens": { "type": "array", "description": "List of FCM tokens for push notifications" }
       },
       "required": ["uid", "name", "phone", "role"]
     },
@@ -51,12 +52,25 @@
         "items": { "type": "array" },
         "total": { "type": "number" },
         "deliveryAddress": { "type": "string" },
-        "paymentMethod": { "type": "string", "enum": ["pix", "cash"] },
-        "status": { "type": "string", "enum": ["new", "accepted", "preparing", "ready", "out_for_delivery", "delivered"] },
+        "paymentMethod": { "type": "string", "enum": ["pix", "cash", "mercadopago"] },
+        "status": { "type": "string", "enum": ["created", "awaiting_payment", "paid", "accepted_by_store", "preparing", "ready_for_delivery", "accepted_by_driver", "out_for_delivery", "delivered", "completed", "cancelled"] },
         "createdAt": { "type": "string", "format": "date-time" },
         "driverId": { "type": "string" }
       },
       "required": ["id", "customerId", "storeId", "items", "total", "deliveryAddress", "paymentMethod", "status", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A single message in a chat",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "senderName", "text", "timestamp"]
     }
   },
   "firestore": {
@@ -75,6 +89,10 @@
     "/orders/{orderId}": {
       "schema": "Order",
       "description": "Orders"
+    },
+    "/orders/{orderId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Chat messages related to an order"
     }
   }
 }

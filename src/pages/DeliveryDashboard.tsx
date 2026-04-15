@@ -4,14 +4,18 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { Order } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bike, MapPin, Phone, CheckCircle, LogOut, Wallet as WalletIcon, List } from 'lucide-react';
+import { Bike, MapPin, Phone, CheckCircle, LogOut, Wallet as WalletIcon, List, MessageSquare } from 'lucide-react';
 import Wallet from '../components/Wallet';
+import Chat from '../components/Chat';
+
+import { triggerNotification } from '../lib/notifications';
 
 export default function DeliveryDashboard() {
   const { user, logout } = useAuth();
   const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
   const [myDeliveries, setMyDeliveries] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState<'deliveries' | 'history' | 'wallet'>('deliveries');
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   
   // Registration Form State
   const [cpf, setCpf] = useState('');
@@ -143,6 +147,8 @@ export default function DeliveryDashboard() {
     setAcceptingId(orderId);
     setError(null);
     try {
+      const order = availableOrders.find(o => o.id === orderId);
+      
       await updateDoc(doc(db, 'orders', orderId), {
         driverId: user.uid,
         driverName: user.name,
@@ -156,6 +162,16 @@ export default function DeliveryDashboard() {
           status: 'accepted_by_driver'
         })
       });
+
+      // Notify Customer
+      if (order?.customerId) {
+        triggerNotification({
+          userId: order.customerId,
+          title: 'Entregador a caminho!',
+          body: `${user.name} aceitou sua entrega e está indo para a loja.`,
+          data: { orderId }
+        });
+      }
     } catch (err) {
       console.error('Error accepting delivery:', err);
       setError('Erro ao aceitar entrega. Tente novamente.');
@@ -166,6 +182,8 @@ export default function DeliveryDashboard() {
 
   const startDelivery = async (orderId: string) => {
     try {
+      const order = myDeliveries.find(o => o.id === orderId);
+      
       await updateDoc(doc(db, 'orders', orderId), {
         status: 'out_for_delivery',
         auditLogs: arrayUnion({
@@ -176,6 +194,16 @@ export default function DeliveryDashboard() {
           status: 'out_for_delivery'
         })
       });
+
+      // Notify Customer
+      if (order?.customerId) {
+        triggerNotification({
+          userId: order.customerId,
+          title: 'Pedido saiu para entrega!',
+          body: `O entregador ${user?.name} já está levando seu pedido.`,
+          data: { orderId }
+        });
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `orders/${orderId}`);
     }
@@ -204,6 +232,17 @@ export default function DeliveryDashboard() {
           status: 'delivered'
         })
       });
+
+      // Notify Customer
+      if (order.customerId) {
+        triggerNotification({
+          userId: order.customerId,
+          title: 'Pedido Entregue!',
+          body: 'Obrigado por pedir no PedeAí. Bom apetite!',
+          data: { orderId: order.id }
+        });
+      }
+      
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) {
@@ -300,8 +339,18 @@ export default function DeliveryDashboard() {
                           <h3 className="text-lg font-bold mt-1">{order.deliveryAddress}</h3>
                           <p className="text-[10px] text-white/80 font-bold uppercase mt-1">Status: {order.status.replace(/_/g, ' ')}</p>
                         </div>
-                        <div className="bg-white/20 p-2 rounded-full">
-                          <MapPin size={20} />
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="bg-white/20 p-2 rounded-full">
+                            <MapPin size={20} />
+                          </div>
+                          {order.status !== 'cancelled' && order.status !== 'completed' && (
+                            <button 
+                              onClick={() => setActiveChatId(order.id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 text-white rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-white/30 transition-colors"
+                            >
+                              <MessageSquare size={12} /> Chat
+                            </button>
+                          )}
                         </div>
                       </div>
                       
@@ -434,6 +483,15 @@ export default function DeliveryDashboard() {
           </section>
         )}
       </div>
+
+      <AnimatePresence>
+        {activeChatId && (
+          <Chat 
+            orderId={activeChatId} 
+            onClose={() => setActiveChatId(null)} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

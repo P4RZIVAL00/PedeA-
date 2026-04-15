@@ -4,8 +4,11 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { Store, Order, Product } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Store as StoreIcon, Package, CheckCircle, Clock, LogOut, Trash2, Utensils, Wallet as WalletIcon, MapPin } from 'lucide-react';
+import { Plus, Store as StoreIcon, Package, CheckCircle, Clock, LogOut, Trash2, Utensils, Wallet as WalletIcon, MapPin, MessageSquare } from 'lucide-react';
 import Wallet from '../components/Wallet';
+import Chat from '../components/Chat';
+
+import { triggerNotification } from '../lib/notifications';
 
 export default function StoreDashboard() {
   const { user, logout } = useAuth();
@@ -15,6 +18,7 @@ export default function StoreDashboard() {
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [isCreatingStore, setIsCreatingStore] = useState(false);
   const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'wallet'>('orders');
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
 
   // Store Form
   const [storeName, setStoreName] = useState('');
@@ -102,6 +106,8 @@ export default function StoreDashboard() {
 
   const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     try {
+      const order = orders.find(o => o.id === orderId);
+      
       await updateDoc(doc(db, 'orders', orderId), { 
         status: newStatus,
         auditLogs: arrayUnion({
@@ -112,6 +118,36 @@ export default function StoreDashboard() {
           status: newStatus
         })
       });
+
+      // Notify Customer
+      if (order?.customerId) {
+        const statusMessages: Record<string, string> = {
+          accepted_by_store: 'Seu pedido foi aceito pela loja!',
+          preparing: 'Seu pedido está sendo preparado.',
+          ready_for_delivery: 'Seu pedido está pronto para entrega!',
+          out_for_delivery: 'Seu pedido saiu para entrega!',
+          completed: 'Pedido entregue com sucesso!'
+        };
+
+        if (statusMessages[newStatus]) {
+          triggerNotification({
+            userId: order.customerId,
+            title: 'Atualização do Pedido',
+            body: statusMessages[newStatus],
+            data: { orderId }
+          });
+        }
+      }
+
+      // Notify Drivers if ready
+      if (newStatus === 'ready_for_delivery') {
+        triggerNotification({
+          role: 'driver',
+          title: 'Nova Entrega Disponível!',
+          body: `Um pedido de ${store?.name} está pronto para ser entregue.`,
+          data: { orderId }
+        });
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `orders/${orderId}`);
     }
@@ -264,9 +300,19 @@ export default function StoreDashboard() {
                       <p className="font-bold text-sm text-text-main mt-1">{order.deliveryAddress}</p>
                       <p className="text-[10px] text-text-sub font-medium mt-1">Cliente: {order.customerName}</p>
                     </div>
-                    <span className="status-pill text-[10px]">
-                      {order.status.replace(/_/g, ' ')}
-                    </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="status-pill text-[10px]">
+                        {order.status.replace(/_/g, ' ')}
+                      </span>
+                      {order.status !== 'cancelled' && order.status !== 'completed' && (
+                        <button 
+                          onClick={() => setActiveChatId(order.id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-primary/20 transition-colors"
+                        >
+                          <MessageSquare size={12} /> Chat
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-2 mb-6 border-y border-border-main py-3">
@@ -402,6 +448,14 @@ export default function StoreDashboard() {
               </form>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {activeChatId && (
+          <Chat 
+            orderId={activeChatId} 
+            onClose={() => setActiveChatId(null)} 
+          />
         )}
       </AnimatePresence>
     </div>

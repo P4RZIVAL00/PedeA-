@@ -4,8 +4,10 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { Order } from '../types';
 import { motion } from 'motion/react';
-import { Clock, CheckCircle, Package, Truck, MapPin, Bike } from 'lucide-react';
+import { Clock, CheckCircle, Package, Truck, MapPin, Bike, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import Chat from '../components/Chat';
+import { AnimatePresence } from 'motion/react';
 
 const STATUS_MAP = {
   created: { label: 'Criado', icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50' },
@@ -25,6 +27,7 @@ export default function OrderTracking() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [simulatingId, setSimulatingId] = useState<string | null>(null);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -110,7 +113,17 @@ export default function OrderTracking() {
                     <span className={`text-xs font-bold uppercase tracking-wide ${status.color}`}>{status.label}</span>
                   </div>
                 </div>
-                <span className="font-extrabold text-text-main text-sm">R$ {order.total.toFixed(2)}</span>
+                <div className="flex flex-col items-end gap-2">
+                  <span className="font-extrabold text-text-main text-sm">R$ {order.total.toFixed(2)}</span>
+                  {order.status !== 'cancelled' && order.status !== 'completed' && (
+                    <button 
+                      onClick={() => setActiveChatId(order.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-[10px] font-bold uppercase tracking-widest hover:bg-primary/20 transition-colors"
+                    >
+                      <MessageSquare size={12} /> Chat
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2 mb-6 border-y border-border-main py-3">
@@ -196,6 +209,15 @@ export default function OrderTracking() {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {activeChatId && (
+          <Chat 
+            orderId={activeChatId} 
+            onClose={() => setActiveChatId(null)} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

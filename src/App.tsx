@@ -11,8 +11,12 @@ import AdminDashboard from './pages/AdminDashboard';
 import BottomNav from './components/BottomNav';
 import ErrorBoundary from './components/ErrorBoundary';
 
+import { useNotifications } from './hooks/useNotifications';
+import NotificationToast from './components/NotificationToast';
+
 export default function App() {
   const { user, loading, isAuthReady } = useAuth();
+  const { toasts, removeToast } = useNotifications();
 
   if (!isAuthReady || loading) {
     return (
@@ -64,6 +68,7 @@ export default function App() {
         )}
       </Routes>
       {user.role === 'customer' && <BottomNav />}
+      <NotificationToast toasts={toasts} onClose={removeToast} />
     </ErrorBoundary>
   );
 }

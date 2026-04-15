@@ -6,6 +6,8 @@ import { motion } from 'motion/react';
 import { Search, ShoppingBag, Utensils, Pill, MoreHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
+import { useNotifications } from '../hooks/useNotifications';
+import { BellOff } from 'lucide-react';
 
 const CATEGORIES = [
   { id: 'restaurant', name: 'Restaurantes', icon: Utensils, color: 'bg-orange-100 text-orange-600' },
@@ -19,6 +21,7 @@ export default function CustomerHome() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { permission } = useNotifications();
 
   useEffect(() => {
     const q = query(collection(db, 'stores'));
@@ -56,6 +59,18 @@ export default function CustomerHome() {
           />
         </div>
       </div>
+
+      {permission === 'denied' && (
+        <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-100 rounded-lg flex items-center gap-3">
+          <div className="bg-red-100 p-2 rounded-full">
+            <BellOff size={16} className="text-red-600" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-red-900 uppercase tracking-widest">Notificações Bloqueadas</p>
+            <p className="text-[10px] text-red-700">Ative as notificações no seu navegador para receber avisos sobre seus pedidos.</p>
+          </div>
+        </div>
+      )}
 
       {/* Categories */}
       <div className="p-4">

@@ -85,6 +85,70 @@ async function startServer() {
     }
   });
 
+  // Notification Helper
+  async function sendNotification(userId: string, title: string, body: string, data: any = {}) {
+    try {
+      const userDoc = await db.collection('users').doc(userId).get();
+      if (!userDoc.exists) return;
+
+      const userData = userDoc.data();
+      const tokens = userData?.fcmTokens || [];
+
+      if (tokens.length === 0) {
+        console.log(`No FCM tokens found for user ${userId}`);
+        return;
+      }
+
+      const message = {
+        notification: { title, body },
+        data: { ...data, click_action: 'FLUTTER_NOTIFICATION_CLICK' },
+        tokens: tokens,
+      };
+
+      const response = await admin.messaging().sendEachForMulticast(message);
+      console.log(`Successfully sent ${response.successCount} notifications to user ${userId}`);
+      
+      // Clean up invalid tokens
+      if (response.failureCount > 0) {
+        const failedTokens: string[] = [];
+        response.responses.forEach((resp, idx) => {
+          if (!resp.success) {
+            const errorCode = resp.error?.code;
+            if (errorCode === 'messaging/invalid-registration-token' || errorCode === 'messaging/registration-token-not-registered') {
+              failedTokens.push(tokens[idx]);
+            }
+          }
+        });
+
+        if (failedTokens.length > 0) {
+          await db.collection('users').doc(userId).update({
+            fcmTokens: admin.firestore.FieldValue.arrayRemove(...failedTokens)
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error sending notification:', error);
+    }
+  }
+
+  app.post('/api/notify', async (req, res) => {
+    const { userId, role, title, body, data } = req.body;
+    
+    try {
+      if (userId) {
+        await sendNotification(userId, title, body, data);
+      } else if (role) {
+        // Find all users with this role
+        const usersSnapshot = await db.collection('users').where('role', '==', role).get();
+        const promises = usersSnapshot.docs.map((doc: any) => sendNotification(doc.id, title, body, data));
+        await Promise.all(promises);
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post('/api/simulate-payment', async (req, res) => {
     const { orderId } = req.body;
     console.log('Simulating payment for order:', orderId);

@@ -7,6 +7,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, ShoppingCart, Plus, Minus, Trash2 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 
+import { triggerNotification } from '../lib/notifications';
+
 export default function StoreDetails() {
   const { storeId } = useParams();
   const navigate = useNavigate();
@@ -106,6 +108,16 @@ export default function StoreDetails() {
 
       console.log('Creating order with status:', orderData.status, 'and payment method:', paymentMethod);
       const docRef = await addDoc(collection(db, 'orders'), orderData);
+
+      // Notify Store Owner
+      if (store?.ownerId) {
+        triggerNotification({
+          userId: store.ownerId,
+          title: 'Novo Pedido!',
+          body: `Você recebeu um novo pedido de ${user.name}.`,
+          data: { orderId: docRef.id }
+        });
+      }
 
       if (paymentMethod === 'mercadopago') {
         setIsPaying(true);
