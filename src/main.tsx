@@ -4,7 +4,11 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.tsx';
 import { AuthProvider } from './AuthContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import { registerSW } from 'virtual:pwa-register';
 import './index.css';
+
+// Register PWA service worker
+registerSW({ immediate: true });
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

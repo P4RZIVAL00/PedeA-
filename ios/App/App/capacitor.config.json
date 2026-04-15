@@ -1,0 +1,6 @@
+{
+	"appId": "com.pedeai.app",
+	"appName": "PedeAi",
+	"webDir": "dist",
+	"packageClassList": []
+}

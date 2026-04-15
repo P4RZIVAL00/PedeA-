@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PedeAi</string>
+    <string name="title_activity_main">PedeAi</string>
+    <string name="package_name">com.pedeai.app</string>
+    <string name="custom_url_scheme">com.pedeai.app</string>
+</resources>
