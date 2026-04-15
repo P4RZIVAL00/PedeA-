@@ -42,7 +42,7 @@ export default function CustomerHome() {
       <div className="bg-primary text-white p-6 border-bottom-[4px] border-accent shadow-lg">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight">PedeAí</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight">TaNaMão</h1>
             <div className="text-xs opacity-90 font-medium">Porto Walter - Acre</div>
           </div>
           <div className="text-right">

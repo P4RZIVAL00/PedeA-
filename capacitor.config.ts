@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.pedeai.acre',
-  appName: 'PedeAi',
+  appId: 'com.tanamao.acre',
+  appName: 'TaNaMao',
   webDir: 'dist'
 };
 

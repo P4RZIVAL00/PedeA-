@@ -14,9 +14,9 @@ export default defineConfig(({mode}) => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
         manifest: {
-          name: 'PedeAí - Porto Walter',
-          short_name: 'PedeAí',
-          description: 'O melhor delivery de Porto Walter',
+          name: 'TaNaMão - Porto Walter',
+          short_name: 'TaNaMão',
+          description: 'O melhor delivery de Porto Walter e região',
           theme_color: '#FF6321',
           background_color: '#ffffff',
           display: 'standalone',

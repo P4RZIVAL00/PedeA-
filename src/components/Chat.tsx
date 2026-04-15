@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from '../AuthContext';
 import { Send, X, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -43,7 +43,7 @@ export default function Chat({ orderId, onClose }: ChatProps) {
           }
         }
       } catch (err) {
-        console.error('Error fetching order details for chat:', err);
+        handleFirestoreError(err, OperationType.GET, `orders/${orderId}`);
       }
     };
 
@@ -62,7 +62,7 @@ export default function Chat({ orderId, onClose }: ChatProps) {
         ...doc.data()
       } as Message));
       setMessages(msgs);
-    });
+    }, (err) => handleFirestoreError(err, OperationType.GET, `orders/${orderId}/messages`));
 
     return () => unsubscribe();
   }, [orderId]);
@@ -104,7 +104,7 @@ export default function Chat({ orderId, onClose }: ChatProps) {
 
       setNewMessage('');
     } catch (err) {
-      console.error('Error sending message:', err);
+      handleFirestoreError(err, OperationType.CREATE, `orders/${orderId}/messages`);
     }
   };
 

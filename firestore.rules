@@ -190,6 +190,24 @@ service cloud.firestore {
           )
         )
       );
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && (
+          request.auth.uid == get(/databases/$(database)/documents/orders/$(orderId)).data.customerId ||
+          request.auth.uid == get(/databases/$(database)/documents/orders/$(orderId)).data.get('driverId', null) ||
+          get(/databases/$(database)/documents/orders/$(orderId)).data.storeId == request.auth.uid ||
+          isAdmin()
+        );
+        allow create: if isAuthenticated() && (
+          request.auth.uid == get(/databases/$(database)/documents/orders/$(orderId)).data.customerId ||
+          request.auth.uid == get(/databases/$(database)/documents/orders/$(orderId)).data.get('driverId', null) ||
+          get(/databases/$(database)/documents/orders/$(orderId)).data.storeId == request.auth.uid ||
+          isAdmin()
+        ) && 
+        request.resource.data.keys().hasAll(['senderId', 'senderName', 'text', 'timestamp']) &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000;
+      }
     }
   }
 }
